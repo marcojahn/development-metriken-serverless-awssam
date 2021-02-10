@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  core service
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+#     Tracing: PassThrough
+#     MemorySize: 128
+
+Parameters:
+  Name:
+    Type: String
+    Description: Application name
+  Stage:
+    Type: String
+    Description: Environment stage or git branch
+  Bucket:
+    Type: String
+    Description: Bucket
+  LogRetentionInDays:
+    Type: Number
+    Default: 7
+    Description: CloudWatch Logs retention period
+
+Resources:
+  LoadGeneratorFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs12.x
+      CodeUri: ./build/
+      Handler: index.handler
+      Environment:
+        Variables:
+          FANOUT_TOPIC_ARN: !GetAtt FanoutTopicParameter.Value
+          ITEMS_TO_CREATE: 10
+      Policies:
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt FanoutTopic.TopicName
+
+  LoadGeneratorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${LoadGeneratorFunc}"
+      RetentionInDays: !Ref LogRetentionInDays
+
+  FanoutTopic:
+    Type: AWS::SNS::Topic
+  
+  FanoutTopicParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub /${Name}/${Stage}/core/messaging/fanoutTopic
+      Description: Fanout SNS Topic ARN
+      Type: String
+      Value: !Ref FanoutTopic
+  
+  DataTypeWithoutConsumerSubscription: #vielleicht irgendwas mit 'fanOut'
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt DataTypeWithoutConsumerQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref FanoutTopic
+      FilterPolicy: |-
+        {
+          "data_type": [
+            {
+              "anything-but": [ "pipelinejob" ]
+            }
+          ]
+        }
+
+  DataTypeWithoutConsumerQueue:
+    Type: AWS::SQS::Queue
+    Properties: {}
+    
+  DataTypeWithoutConsumerSNSToSQSPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: 
+        - !Ref DataTypeWithoutConsumerQueue
+      PolicyDocument: 
+        Statement: 
+          - 
+            Action: 
+              - "SQS:SendMessage" 
+            Effect: "Allow"
+            Resource: !GetAtt DataTypeWithoutConsumerQueue.Arn
+            Principal:  
+              AWS: 
+                - "*" #TODO was anderes als Sternchen
+  
+Outputs:
+  LoadGenerator:
+    Description: "Load generator function ARN"
+    Value: !GetAtt LoadGeneratorFunc.Arn
+  LoadGeneratorIamRole:
+    Description: "Implicit IAM Role created for load generator function"
+    Value: !GetAtt LoadGeneratorFuncRole.Arn
+  LoadGeneratorFuncName:
+    Description: "Load generator Name"
+    Value: !Ref LoadGeneratorFunc
+  FanoutTopic:
+    Description: "Fanout Topic SNS ARN"
+    Value: !Ref FanoutTopic

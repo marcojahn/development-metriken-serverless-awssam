@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Nested Application
+
+Parameters:
+  Name: # TODO better naming or more explicit
+    Type: String
+    Description: Application name
+  Bucket:
+    Type: String
+    Description: Bucket
+  Stage:
+    Type: String
+    Description: Environment stage or git branch
+
+Resources:
+  Core:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./core/template.yaml
+      Parameters:
+        Name: !Sub ${Name}
+        Stage: !Sub ${Stage}
+        Bucket: !Sub ${Bucket}
+      Tags:
+        Name: !Sub ${Name}
+        Environment: !Sub ${Stage}
+
+  PipelineJobsSecurityScanner:
+    DependsOn: Core
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: ./pipeline-jobs-secscan/template.yaml
+      Parameters:
+        Stage: !Sub ${Stage}
+        FanoutTopic: !Sub /${Name}/${Stage}/core/messaging/fanoutTopic
+        GitLabToken: !Sub /${Name}/${Stage}/gitlab/token
+        Bucket: !Sub ${Bucket}
+      Tags:
+        Name: !Sub ${Name}
+        Environment: !Sub ${Stage}

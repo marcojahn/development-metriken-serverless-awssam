@@ -1,0 +1,27 @@
+{
+	"Records": [{
+		"messageId": "d5a2fdb0-a8e4-4b11-9faa-23596fc6f0ab",
+		"receiptHandle": "AQEB5IcCp2v2Sb4EH57OHVGGFaY+aUxOpt5z19kJsg3HaPDkGGF/9cV1ShuiEGrWcEfWOcJ9bOLVV6O7V5I9MLh2MYXnUcHgVx0ciyW4vyAvz7+GqBANH+f1gYhRpHPOFj/rAZj5pYlFl8luGYx74D4ywN9uqzgq5SCA8JldDwsVXyHhlBrd0KLuW+kDBbdguDSz6hRczY/G2T3LKBz9xavJNrPSfL3tQkXuYcGGr8rVTiHkWc7lRY7tDBtcNDUDSnDQM765EpeKWs/kCkn3ntQcpVobivQ/i+kSIfws6moU90TxTatvsUrc81Lqo6O03j6wVBsGZOLI7XJtjlv7+/4p83qJrYPH8s3f4/oP7GGs2L6gCo1TOjHYYAYxkmsOLBYO3g0q5l7RAsKBF5bEVnmn5A8bOQVM67i/CVk5259An603VNnJFou1kvJTjC5eB/3AOmijeaDFb7VtjUufgM8AzgQWkba6VdiNKLaaz4WImeg=",
+		"body": {
+      "Type" : "Notification",
+      "MessageId" : "de2a4870-7f8b-58af-9733-10e34e8467af",
+      "TopicArn" : "arn:aws:sns:eu-central-1:903880536874:devmetrics-dev-Core-1TXRDSCCO8CXF-WorkerTopic-IOHBWB8KRGBR",
+      "Subject" : "WORKER There will be subject 1612263118883",
+      "Message" : "{\"jobId\":997420788,\"projectId\":3472737}",
+      "Timestamp" : "2021-02-02T10:51:59.482Z",
+      "SignatureVersion" : "1",
+      "Signature" : "EXAMPLE",
+      "SigningCertURL" : "EXAMPLE",
+      "UnsubscribeURL" : "EXAMPLE",
+      "MessageAttributes" : {
+        "object_kind" : {"Type":"String","Value":"pipelinejob"}
+      }
+    },
+		"attributes": {},
+		"messageAttributes": {},
+		"md5OfBody": "17f53c166e44cfc6bf21138a3344a323",
+		"eventSource": "aws:sqs",
+		"eventSourceARN": "arn:aws:sqs:eu-central-1:903880536874:devmetrics-dev-PipelineJobsScanner-PipelineJobSecurityScannerQueue-173HV0DKD10PH",
+		"awsRegion": "eu-central-1"
+	}]
+}

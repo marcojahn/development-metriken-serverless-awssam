@@ -1,0 +1,7 @@
+version: v1
+contacts:
+  - db.vendo.devlead@deutschebahn.com
+  - Sebastian.Saemisch@deutschebahn.com
+confidentiality: confidential
+custom:
+  jira-group: _proj_dev

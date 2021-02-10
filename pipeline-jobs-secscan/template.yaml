@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  pipeline jobs security scanner service
+  
+Parameters:
+  Stage:
+    Type: String
+    Description: Environment stage or git branch
+  Bucket:
+    Type: String
+    Description: Bucket
+  LogRetentionInDays:
+    Type: Number
+    Default: 7
+    Description: CloudWatch Logs retention period
+  FanoutTopic:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: Core SVC SNS Fanout Topic
+  GitLabToken:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: GitLab Token
+  GitLabTokenSecret:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: GitLab secret Token
+    Default: {{resolve:ssm-secure:/devmetrics/dev/gitlab/token-secret:1}}
+
+#PJSS -> PipelineJobSecurityScanner
+Resources:
+  PJSSSubscription: #vielleicht irgendwas mit 'fanOut'
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt PJSSQueue.Arn
+      Protocol: sqs
+      TopicArn: !Ref FanoutTopic
+      FilterPolicy:
+        data_type:
+          - pipelinejob
+
+  PJSSQueue:
+    Type: AWS::SQS::Queue
+    Properties: {}
+    
+  PJSSSNSToSQSPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: 
+        - !Ref PJSSQueue
+      PolicyDocument: 
+        Statement: 
+          - 
+            Action: 
+              - "SQS:SendMessage" 
+            Effect: "Allow"
+            Resource: !GetAtt PJSSQueue.Arn
+            Principal:  
+              AWS: 
+                - "*" #TODO was anderes als Sternchen
+  
+  GetMetaInfoFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs12.x
+      CodeUri: ./src/metainfo
+      Handler: index.handler
+      Timeout: 15 #TODO decrease when DLQ availble and DLQ Wait time is set
+      EventInvokeConfig:
+        MaximumRetryAttempts: 1
+      Events:
+        PJSSEvent: #TODO better naming
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PJSSQueue.Arn
+      Environment:
+        Variables:
+          META_INFO_QUEUE_URL: !Ref ParseJobLogSQSQueue
+          GITLAB_TOKEN: !Ref GitLabToken
+      Tracing: 'Active' #TODO configure
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ParseJobLogSQSQueue.QueueName
+        - AWSXRayDaemonWriteAccess #TODO configure
+
+  GetMetaInfoFuncLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GetMetaInfoFunc}"
+      RetentionInDays: !Ref LogRetentionInDays
+
+  ParseJobLogSQSQueue: #TODO better naming
+    Type: AWS::SQS::Queue
+
+  ParseJobLogFunc: #TODO better naming
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs12.x
+      CodeUri: ./src/logscanner
+      Handler: index.handler
+      Timeout: 15 #TODO decrease when DLQ availble and DLQ Wait time is set
+      EventInvokeConfig:
+        MaximumRetryAttempts: 1
+      Events:
+        MySQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ParseJobLogSQSQueue.Arn
+            BatchSize: 10
+      Environment:
+        Variables:
+          GITLAB_TOKEN: !Ref GitLabToken
+          S3_BUCKET: !Ref Bucket
+      #Tracing: 'Active' #TODO configure
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref Bucket
+      #  - AWSXRayDaemonWriteAccess #TODO configure
+
+  ParseJobLogFuncLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ParseJobLogFunc}"
+      RetentionInDays: !Ref LogRetentionInDays
+  
+  # // TODO experiement, make hübsch
+
+Outputs:
+  GetMetaInfoFunc:
+    Description: "GetMetaInfo Function ARN"
+    Value: !GetAtt GetMetaInfoFunc.Arn
+  GetMetaInfoFuncIamRole:
+    Description: "Implicit IAM Role created for GetMetaInfo function"
+    Value: !GetAtt GetMetaInfoFuncRole.Arn
+  GetMetaInfoFuncName:
+    Description: "GetMetaInfo Function Name"
+    Value: !Ref GetMetaInfoFunc
+  ParseJobLogFunc:
+    Description: "ParseJobLog Function ARN"
+    Value: !GetAtt ParseJobLogFunc.Arn
+  ParseJobLogFuncIamRole:
+    Description: "Implicit IAM Role created for ParseJobLog function"
+    Value: !GetAtt ParseJobLogFuncRole.Arn
+  ParseJobLogFuncName:
+    Description: "ParseJobLog Function Name"
+    Value: !Ref ParseJobLogFunc
+#TODO remaining outputs
